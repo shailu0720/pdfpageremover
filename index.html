@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Page Remover</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px 0;
+            background-color: #4a6cf7;
+            color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .upload-section {
+            background-color: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .upload-area {
+            border: 2px dashed #4a6cf7;
+            border-radius: 10px;
+            padding: 40px;
+            margin-bottom: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upload-area:hover {
+            background-color: #f0f4ff;
+        }
+
+        .upload-area.dragover {
+            background-color: #e0ebff;
+            border-color: #2a4fcf;
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            color: #4a6cf7;
+            margin-bottom: 15px;
+        }
+
+        .upload-text {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+        }
+
+        .upload-subtext {
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .btn {
+            background-color: #4a6cf7;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            background-color: #3a5ce5;
+        }
+
+        .btn:disabled {
+            background-color: #a0aec0;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            background-color: #5a6268;
+        }
+
+        .btn-danger {
+            background-color: #dc3545;
+        }
+
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+
+        .pdf-preview {
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            margin-bottom: 30px;
+            display: none;
+        }
+
+        .pdf-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .pdf-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .page-controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .pages-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .page-item {
+            position: relative;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .page-item:hover {
+            border-color: #4a6cf7;
+            transform: translateY(-3px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .page-item.selected {
+            border-color: #dc3545;
+            background-color: #fff5f5;
+        }
+
+        .page-item.selected .page-number {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .page-canvas {
+            width: 100%;
+            height: 200px;
+            object-fit: contain;
+            background-color: #f8f9fa;
+        }
+
+        .page-number {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .remove-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: #dc3545;
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .page-item.selected .remove-indicator {
+            opacity: 1;
+        }
+
+        .action-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: #333;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .notification.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .notification.success {
+            background-color: #28a745;
+        }
+
+        .notification.error {
+            background-color: #dc3545;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            color: #cbd5e0;
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 2rem;
+            }
+            
+            .pages-container {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            }
+            
+            .pdf-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-file-pdf"></i> PDF Page Remover</h1>
+            <p>Upload a PDF, select pages to remove, and download your modified document</p>
+        </header>
+
+        <section class="upload-section">
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                </div>
+                <div class="upload-text">Drag & drop your PDF here</div>
+                <div class="upload-subtext">or</div>
+                <button class="btn" id="browseBtn">
+                    <i class="fas fa-folder-open"></i> Browse Files
+                </button>
+                <input type="file" id="fileInput" class="file-input" accept=".pdf">
+            </div>
+        </section>
+
+        <section class="pdf-preview" id="pdfPreview">
+            <div class="pdf-header">
+                <div class="pdf-title" id="pdfTitle">Document.pdf</div>
+                <div class="page-controls">
+                    <button class="btn btn-secondary" id="selectAllBtn">
+                        <i class="fas fa-check-square"></i> Select All
+                    </button>
+                    <button class="btn btn-secondary" id="deselectAllBtn">
+                        <i class="fas fa-square"></i> Deselect All
+                    </button>
+                    <button class="btn btn-danger" id="removeSelectedBtn" disabled>
+                        <i class="fas fa-trash"></i> Remove Selected
+                    </button>
+                </div>
+            </div>
+            
+            <div class="pages-container" id="pagesContainer">
+                <!-- PDF pages will be rendered here -->
+            </div>
+            
+            <div class="action-buttons">
+                <button class="btn btn-secondary" id="resetBtn">
+                    <i class="fas fa-redo"></i> Upload New PDF
+                </button>
+                <button class="btn" id="downloadBtn" disabled>
+                    <i class="fas fa-download"></i> Download Modified PDF
+                </button>
+            </div>
+        </section>
+
+        <div class="notification" id="notification">
+            <i class="fas fa-info-circle"></i>
+            <span id="notificationText"></span>
+        </div>
+    </div>
+
+    <script>
+        // Set the worker source for PDF.js
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        // DOM elements
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const browseBtn = document.getElementById('browseBtn');
+        const pdfPreview = document.getElementById('pdfPreview');
+        const pdfTitle = document.getElementById('pdfTitle');
+        const pagesContainer = document.getElementById('pagesContainer');
+        const selectAllBtn = document.getElementById('selectAllBtn');
+        const deselectAllBtn = document.getElementById('deselectAllBtn');
+        const removeSelectedBtn = document.getElementById('removeSelectedBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const notification = document.getElementById('notification');
+        const notificationText = document.getElementById('notificationText');
+
+        // State variables
+        let pdfDoc = null;
+        let pdfBytes = null;
+        let selectedPages = new Set();
+        let removedPages = new Set();
+        let fileName = 'document.pdf';
+
+        // Event listeners
+        browseBtn.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', handleFileSelect);
+        uploadArea.addEventListener('dragover', handleDragOver);
+        uploadArea.addEventListener('dragleave', handleDragLeave);
+        uploadArea.addEventListener('drop', handleDrop);
+        selectAllBtn.addEventListener('click', selectAllPages);
+        deselectAllBtn.addEventListener('click', deselectAllPages);
+        removeSelectedBtn.addEventListener('click', removeSelectedPages);
+        resetBtn.addEventListener('click', resetApp);
+        downloadBtn.addEventListener('click', downloadModifiedPdf);
+
+        // File handling functions
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file && file.type === 'application/pdf') {
+                processPdf(file);
+            } else {
+                showNotification('Please select a valid PDF file', 'error');
+            }
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            const file = e.dataTransfer.files[0];
+            if (file && file.type === 'application/pdf') {
+                processPdf(file);
+            } else {
+                showNotification('Please drop a valid PDF file', 'error');
+            }
+        }
+
+        async function processPdf(file) {
+            try {
+                fileName = file.name;
+                pdfTitle.textContent = fileName;
+                
+                // Read the file as an array buffer
+                const arrayBuffer = await file.arrayBuffer();
+                pdfBytes = new Uint8Array(arrayBuffer);
+                
+                // Load the PDF document
+                pdfDoc = await pdfjsLib.getDocument({ data: pdfBytes }).promise;
+                
+                // Reset state
+                selectedPages.clear();
+                removedPages.clear();
+                
+                // Display the PDF preview
+                await renderPdfPages();
+                
+                // Show the preview section
+                pdfPreview.style.display = 'block';
+                
+                // Scroll to the preview section
+                pdfPreview.scrollIntoView({ behavior: 'smooth' });
+                
+                showNotification('PDF loaded successfully', 'success');
+            } catch (error) {
+                console.error('Error processing PDF:', error);
+                showNotification('Error processing PDF file', 'error');
+            }
+        }
+
+        async function renderPdfPages() {
+            pagesContainer.innerHTML = '';
+            
+            for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+                const page = await pdfDoc.getPage(pageNum);
+                const viewport = page.getViewport({ scale: 1 });
+                
+                // Create a canvas element for rendering the page
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                
+                // Set canvas dimensions to fit the container while maintaining aspect ratio
+                const containerWidth = 150;
+                const scale = containerWidth / viewport.width;
+                const scaledViewport = page.getViewport({ scale });
+                
+                canvas.height = scaledViewport.height;
+                canvas.width = scaledViewport.width;
+                canvas.className = 'page-canvas';
+                
+                // Render the page
+                const renderContext = {
+                    canvasContext: context,
+                    viewport: scaledViewport
+                };
+                
+                await page.render(renderContext).promise;
+                
+                // Create the page item container
+                const pageItem = document.createElement('div');
+                pageItem.className = 'page-item';
+                pageItem.dataset.pageNum = pageNum;
+                
+                // Add page number indicator
+                const pageNumber = document.createElement('div');
+                pageNumber.className = 'page-number';
+                pageNumber.textContent = `Page ${pageNum}`;
+                
+                // Add remove indicator
+                const removeIndicator = document.createElement('div');
+                removeIndicator.className = 'remove-indicator';
+                removeIndicator.innerHTML = '<i class="fas fa-times"></i>';
+                
+                // Add elements to the page item
+                pageItem.appendChild(canvas);
+                pageItem.appendChild(pageNumber);
+                pageItem.appendChild(removeIndicator);
+                
+                // Add click event to toggle selection
+                pageItem.addEventListener('click', () => togglePageSelection(pageNum, pageItem));
+                
+                // Add to the container
+                pagesContainer.appendChild(pageItem);
+            }
+            
+            updateButtonStates();
+        }
+
+        function togglePageSelection(pageNum, pageElement) {
+            if (selectedPages.has(pageNum)) {
+                selectedPages.delete(pageNum);
+                pageElement.classList.remove('selected');
+            } else {
+                selectedPages.add(pageNum);
+                pageElement.classList.add('selected');
+            }
+            
+            updateButtonStates();
+        }
+
+        function selectAllPages() {
+            selectedPages.clear();
+            document.querySelectorAll('.page-item').forEach(item => {
+                const pageNum = parseInt(item.dataset.pageNum);
+                selectedPages.add(pageNum);
+                item.classList.add('selected');
+            });
+            
+            updateButtonStates();
+        }
+
+        function deselectAllPages() {
+            selectedPages.clear();
+            document.querySelectorAll('.page-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            
+            updateButtonStates();
+        }
+
+        async function removeSelectedPages() {
+            if (selectedPages.size === 0) return;
+            
+            try {
+                // Add selected pages to removedPages set
+                selectedPages.forEach(pageNum => {
+                    removedPages.add(pageNum);
+                });
+                
+                // Clear selection
+                selectedPages.clear();
+                
+                // Update UI
+                document.querySelectorAll('.page-item.selected').forEach(item => {
+                    item.classList.remove('selected');
+                    item.style.opacity = '0.5';
+                    item.style.pointerEvents = 'none';
+                    
+                    // Add a removed overlay
+                    const overlay = document.createElement('div');
+                    overlay.style.position = 'absolute';
+                    overlay.style.top = '0';
+                    overlay.style.left = '0';
+                    overlay.style.width = '100%';
+                    overlay.style.height = '100%';
+                    overlay.style.backgroundColor = 'rgba(220, 53, 69, 0.3)';
+                    overlay.style.display = 'flex';
+                    overlay.style.alignItems = 'center';
+                    overlay.style.justifyContent = 'center';
+                    overlay.innerHTML = '<i class="fas fa-ban" style="font-size: 2rem; color: white;"></i>';
+                    item.appendChild(overlay);
+                });
+                
+                updateButtonStates();
+                showNotification(`${removedPages.size} page(s) marked for removal`, 'success');
+            } catch (error) {
+                console.error('Error removing pages:', error);
+                showNotification('Error removing pages', 'error');
+            }
+        }
+
+        async function downloadModifiedPdf() {
+            if (removedPages.size === 0) {
+                showNotification('No pages selected for removal', 'error');
+                return;
+            }
+            
+            try {
+                // Show loading state
+                downloadBtn.disabled = true;
+                downloadBtn.innerHTML = '<span class="loading"></span> Processing...';
+                
+                // Load the PDF with PDF-lib
+                const pdfDocModified = await PDFLib.PDFDocument.load(pdfBytes);
+                
+                // Get page indices (PDF-lib uses 0-based indexing)
+                const pageIndicesToRemove = Array.from(removedPages).map(pageNum => pageNum - 1);
+                
+                // Sort in descending order to avoid index shifting when removing
+                pageIndicesToRemove.sort((a, b) => b - a);
+                
+                // Remove pages
+                pageIndicesToRemove.forEach(pageIndex => {
+                    pdfDocModified.removePage(pageIndex);
+                });
+                
+                // Save the modified PDF
+                const modifiedPdfBytes = await pdfDocModified.save();
+                
+                // Create a blob and download link
+                const blob = new Blob([modifiedPdfBytes], { type: 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+                
+                // Create a download link
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `modified_${fileName}`;
+                document.body.appendChild(a);
+                a.click();
+                
+                // Clean up
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 100);
+                
+                showNotification('PDF downloaded successfully', 'success');
+            } catch (error) {
+                console.error('Error downloading modified PDF:', error);
+                showNotification('Error processing PDF download', 'error');
+            } finally {
+                // Reset button state
+                downloadBtn.disabled = false;
+                downloadBtn.innerHTML = '<i class="fas fa-download"></i> Download Modified PDF';
+            }
+        }
+
+        function resetApp() {
+            // Reset state
+            pdfDoc = null;
+            pdfBytes = null;
+            selectedPages.clear();
+            removedPages.clear();
+            
+            // Reset UI
+            fileInput.value = '';
+            pdfPreview.style.display = 'none';
+            pagesContainer.innerHTML = '';
+            
+            updateButtonStates();
+            
+            // Scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function updateButtonStates() {
+            // Update remove button state
+            removeSelectedBtn.disabled = selectedPages.size === 0;
+            
+            // Update download button state
+            downloadBtn.disabled = removedPages.size === 0;
+            
+            // Update select/deselect all buttons
+            const totalPages = pdfDoc ? pdfDoc.numPages : 0;
+            selectAllBtn.disabled = totalPages === 0 || selectedPages.size === totalPages;
+            deselectAllBtn.disabled = selectedPages.size === 0;
+        }
+
+        function showNotification(message, type = 'info') {
+            notificationText.textContent = message;
+            notification.className = 'notification';
+            
+            if (type === 'success') {
+                notification.classList.add('success');
+                notification.querySelector('i').className = 'fas fa-check-circle';
+            } else if (type === 'error') {
+                notification.classList.add('error');
+                notification.querySelector('i').className = 'fas fa-exclamation-circle';
+            } else {
+                notification.querySelector('i').className = 'fas fa-info-circle';
+            }
+            
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
